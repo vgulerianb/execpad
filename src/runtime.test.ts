@@ -1,8 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { Runtime } from "./runtime.js";
+import { truncateOutput } from "./sandbox/limits.js";
+
+function hasSqlite3Cli(): boolean {
+  try {
+    execSync("sqlite3 -version", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 describe("Runtime", () => {
   let tmp: string;
@@ -64,6 +75,52 @@ describe("Runtime", () => {
     const t = rt.asOpenAITool();
     expect(t.type).toBe("function");
     expect(t.function.name).toBe("execute_code");
+    rt.close();
+  });
+
+  it("apply() without overlay throws", () => {
+    const rt = new Runtime(tmp);
+    expect(() => rt.apply()).toThrow(/overlay mode/i);
+    rt.close();
+  });
+
+  it("rejects cwd outside workspace", async () => {
+    const rt = new Runtime(tmp);
+    await expect(rt.run("bash", "true", { cwd: ".." })).rejects.toThrow(/escapes workspace/i);
+    rt.close();
+  });
+
+  it("runs javascript (Node)", async () => {
+    const rt = new Runtime(tmp);
+    const r = await rt.run("javascript", "console.log(40+2)");
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.trim()).toBe("42");
+    rt.close();
+  });
+
+  it.skipIf(!hasSqlite3Cli())("runs sql via sqlite3 CLI", async () => {
+    const rt = new Runtime(tmp);
+    const r = await rt.run("sql", "SELECT 1 AS n;");
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toMatch(/1/);
+    rt.close();
+  });
+
+  it("truncateOutput leaves small output unchanged", () => {
+    const r = truncateOutput("a", "b", 10_000);
+    expect(r.truncated).toBe(false);
+    expect(r.stdout).toBe("a");
+  });
+
+  it("truncateOutput truncates and hashes when over limit", () => {
+    const r = truncateOutput("x".repeat(100), "", 50);
+    expect(r.truncated).toBe(true);
+    expect(r.hashFull).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("readonly overlay still rejects write on overlay fs", () => {
+    const rt = new Runtime(tmp, { overlay: true, readonly: true });
+    expect(() => rt.fs.writeFile("x.txt", "n")).toThrow(/read-only/i);
     rt.close();
   });
 });
