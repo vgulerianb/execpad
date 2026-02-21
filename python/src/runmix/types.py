@@ -24,6 +24,21 @@ class RunResult:
 
 
 @dataclass
+class RunLogEntry:
+    id: str
+    at: float
+    language: Language
+    code: str
+    cwd: str
+    exit_code: int
+    duration_ms: float
+    stdout: str
+    stderr: str
+    truncated: bool
+    files: list[FileChange]
+
+
+@dataclass
 class SerializedRuntime:
     version: int
     root: str

@@ -1,7 +1,16 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import type { FileChange, Language, ResourceLimits, RunOptions, RunResult, RuntimeOptions, SerializedRuntime } from "./types.js";
+import type {
+  FileChange,
+  Language,
+  ResourceLimits,
+  RunLogEntry,
+  RunOptions,
+  RunResult,
+  RuntimeOptions,
+  SerializedRuntime,
+} from "./types.js";
 import type { FsAdapter } from "./fs/types.js";
 import { RealFs } from "./fs/real-fs.js";
 import { ReadonlyFs } from "./fs/readonly-fs.js";
@@ -68,10 +77,16 @@ export class Runtime {
   private readonly limits: ResourceLimits;
   private readonly engines = new Map<Language, Engine>();
   private readonly options: RuntimeOptions;
+  private readonly runLogEnabled: boolean;
+  private readonly runLogMax: number;
+  private readonly runLog: RunLogEntry[] = [];
+  private logSeq = 0;
 
   constructor(root: string, options: RuntimeOptions = {}) {
     this.root = path.resolve(root);
     this.options = options;
+    this.runLogEnabled = options.runLog !== false;
+    this.runLogMax = Math.max(1, options.runLogMaxEntries ?? 200);
     this.limits = { ...DEFAULT_LIMITS, ...options.limits };
     if (options.overlay) {
       this.workDir = fs.mkdtempSync(path.join(os.tmpdir(), "runmix-"));
@@ -129,7 +144,39 @@ export class Runtime {
     });
     const afterRels = listMatchingRelPaths(this.workDir, ["**/*"], this.options.excludeGlobs ?? ["**/node_modules/**", "**/.git/**"]);
     const files = diffTrees(this.workDir, before, afterRels);
-    return { ...result, files };
+    const merged: RunResult = { ...result, files };
+    if (this.runLogEnabled) {
+      this.logSeq += 1;
+      const entry: RunLogEntry = {
+        id: `run-${this.logSeq}`,
+        at: Date.now(),
+        language: lang,
+        code,
+        cwd,
+        exitCode: merged.exitCode,
+        durationMs: merged.durationMs,
+        stdout: merged.stdout,
+        stderr: merged.stderr,
+        truncated: merged.truncated,
+        files: merged.files,
+      };
+      this.runLog.push(entry);
+      while (this.runLog.length > this.runLogMax) {
+        this.runLog.shift();
+      }
+      this.options.onRun?.(entry);
+    }
+    return merged;
+  }
+
+  /** Snapshot of recorded runs (oldest → newest). Empty if `runLog: false`. */
+  getRunLog(): RunLogEntry[] {
+    return [...this.runLog];
+  }
+
+  /** Drop all stored run entries. */
+  clearRunLog(): void {
+    this.runLog.length = 0;
   }
 
   /** Apply overlay workspace back to original root (overlay mode only). */

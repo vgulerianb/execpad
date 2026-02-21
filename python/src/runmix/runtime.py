@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from runmix.engines import run_bash, run_javascript, run_python, run_sql
 from runmix.extensions.globs import list_matching_rel_paths
-from runmix.types import FileChange, Language, RunResult, SerializedRuntime
+from runmix.types import FileChange, Language, RunLogEntry, RunResult, SerializedRuntime
 
 
 def _cp_tree(src: Path, dest: Path) -> None:
@@ -64,6 +66,9 @@ class Runtime:
         files: dict[str, str] | None = None,
         include_globs: list[str] | None = None,
         exclude_globs: list[str] | None = None,
+        run_log: bool = True,
+        run_log_max_entries: int = 200,
+        on_run: Callable[[RunLogEntry], None] | None = None,
     ) -> None:
         self.root = Path(root).resolve()
         self._readonly = readonly
@@ -72,6 +77,11 @@ class Runtime:
         self._include = include_globs
         self._exclude = exclude_globs or ["**/node_modules/**", "**/.git/**"]
         self._owns_workdir = overlay
+        self._run_log_enabled = run_log
+        self._run_log_max = max(1, int(run_log_max_entries))
+        self._on_run = on_run
+        self._run_log: list[RunLogEntry] = []
+        self._log_seq = 0
         if overlay:
             self._workdir = Path(tempfile.mkdtemp(prefix="runmix-"))
             _cp_tree(self.root, self._workdir)
@@ -123,7 +133,33 @@ class Runtime:
             raise ValueError(f"Unknown language: {language}")
         after_rels = list_matching_rel_paths(self._workdir, ["**/*"], self._exclude)
         r.files = _diff_tree(self._workdir, before, after_rels)
+        if self._run_log_enabled:
+            self._log_seq += 1
+            entry = RunLogEntry(
+                id=f"run-{self._log_seq}",
+                at=time.time() * 1000,
+                language=language,
+                code=code,
+                cwd=str(wd),
+                exit_code=r.exit_code,
+                duration_ms=r.duration_ms,
+                stdout=r.stdout,
+                stderr=r.stderr,
+                truncated=r.truncated,
+                files=list(r.files),
+            )
+            self._run_log.append(entry)
+            while len(self._run_log) > self._run_log_max:
+                self._run_log.pop(0)
+            if self._on_run:
+                self._on_run(entry)
         return r
+
+    def get_run_log(self) -> list[RunLogEntry]:
+        return list(self._run_log)
+
+    def clear_run_log(self) -> None:
+        self._run_log.clear()
 
     def apply(self) -> None:
         if not self._overlay:

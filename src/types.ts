@@ -5,6 +5,21 @@ export interface ResourceLimits {
   maxOutputBytes?: number;
 }
 
+export interface RunLogEntry {
+  id: string;
+  /** Epoch ms when the run finished. */
+  at: number;
+  language: Language;
+  code: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+  files: FileChange[];
+}
+
 export interface RuntimeOptions {
   readonly?: boolean;
   overlay?: boolean;
@@ -14,6 +29,15 @@ export interface RuntimeOptions {
   /** Glob patterns for `listMatching` / snapshot diff scope (minimatch). */
   includeGlobs?: string[];
   excludeGlobs?: string[];
+  /**
+   * When true (default), each `run()` is appended to an in-memory ring buffer
+   * (`getRunLog` / `clearRunLog`) for agents and dashboards.
+   */
+  runLog?: boolean;
+  /** Max retained log entries; oldest dropped. Default 200. */
+  runLogMaxEntries?: number;
+  /** Called after each run with the same payload stored in the log. */
+  onRun?: (entry: RunLogEntry) => void;
 }
 
 export interface RunOptions extends ResourceLimits {

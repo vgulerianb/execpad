@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { Runtime } from "./runtime.js";
 import { truncateOutput } from "./sandbox/limits.js";
+import { exportRunLogJSON } from "./run-log.js";
 
 function hasSqlite3Cli(): boolean {
   try {
@@ -121,6 +122,47 @@ describe("Runtime", () => {
   it("readonly overlay still rejects write on overlay fs", () => {
     const rt = new Runtime(tmp, { overlay: true, readonly: true });
     expect(() => rt.fs.writeFile("x.txt", "n")).toThrow(/read-only/i);
+    rt.close();
+  });
+
+  it("getRunLog records stdout and code; clearRunLog empties", async () => {
+    const rt = new Runtime(tmp);
+    await rt.run("bash", 'echo "logged"');
+    const log = rt.getRunLog();
+    expect(log.length).toBe(1);
+    expect(log[0].stdout.trim()).toBe("logged");
+    expect(log[0].language).toBe("bash");
+    expect(exportRunLogJSON(log)).toContain("logged");
+    rt.clearRunLog();
+    expect(rt.getRunLog().length).toBe(0);
+    rt.close();
+  });
+
+  it("runLogMaxEntries drops oldest runs", async () => {
+    const rt = new Runtime(tmp, { runLogMaxEntries: 2 });
+    await rt.run("bash", "echo 1");
+    await rt.run("bash", "echo 2");
+    await rt.run("bash", "echo 3");
+    const log = rt.getRunLog();
+    expect(log.length).toBe(2);
+    expect(log[0].stdout.trim()).toBe("2");
+    expect(log[1].stdout.trim()).toBe("3");
+    rt.close();
+  });
+
+  it("runLog false skips recording", async () => {
+    const rt = new Runtime(tmp, { runLog: false });
+    await rt.run("bash", "echo x");
+    expect(rt.getRunLog().length).toBe(0);
+    rt.close();
+  });
+
+  it("onRun fires for each run", async () => {
+    const ids: string[] = [];
+    const rt = new Runtime(tmp, { onRun: (e) => ids.push(e.id) });
+    await rt.run("bash", "true");
+    await rt.run("bash", "true");
+    expect(ids).toEqual(["run-1", "run-2"]);
     rt.close();
   });
 });
