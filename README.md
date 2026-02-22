@@ -1,54 +1,52 @@
 # runmix
 
-Run **bash**, **python**, **javascript** (Node), and **sql** (sqlite3 CLI) against a **real directory** — for AI agents and tooling.
+Execute **bash**, **Python**, **JavaScript** (Node), and **SQL** (via `sqlite3` CLI) against a **real project directory**—with optional overlay, read-only mode, file-change tracking, and a session run log. Built for **AI agents**, CI, and local tooling.
+
+## Install
 
 ```bash
 npm install runmix
 ```
 
+Requires **Node.js ≥ 18**. For SQL on Node, the **`sqlite3`** binary must be on your `PATH`.
+
+## Quick start
+
 ```ts
 import { Runtime } from "runmix";
 
 const rt = new Runtime("./my-project");
-const r = await rt.run("python", `print(open("README.md").read()[:80])`);
+const r = await rt.run("python", 'print(open("README.md").read()[:80])');
 console.log(r.stdout);
+console.log(r.files); // file changes under the workspace
 rt.close();
 ```
 
-- **Read-only** workspace: `new Runtime("./repo", { readonly: true })`
-- **Overlay** (copy workspace to temp, `apply()` to write back): `{ overlay: true }`
-- **Persistence**: `serialize()` / `Runtime.deserialize()` for session restore
-- **Globs**: `includeGlobs` / `excludeGlobs` for file-change tracking scope
-- **OpenAI**: `asOpenAITool()` + `executeToolCall(args)`
-- **Session log**: each `run()` is recorded (stdout/stderr, code, cwd, exit, file changes). Use `getRunLog()`, `clearRunLog()`, optional `onRun` callback, `exportRunLogJSON` / `exportRunLogMarkdown`. Disable with `{ runLog: false }` or cap with `runLogMaxEntries`.
+## Features
 
-### Session log (TypeScript)
+| Capability | Summary |
+|------------|---------|
+| **Languages** | `bash`, `python`, `javascript`, `sql` |
+| **Workspace modes** | Normal, **read-only** (`readonly: true`), or **overlay** (temp copy + `apply()` back to disk) |
+| **File tracking** | `includeGlobs` / `excludeGlobs` (minimatch) scope which paths appear in `RunResult.files` |
+| **Limits** | `timeoutMs`, `maxOutputBytes` per run or via `limits` on the runtime |
+| **Session log** | `getRunLog()`, `clearRunLog()`, `exportRunLogJSON` / `exportRunLogMarkdown`, optional `onRun` |
+| **OpenAI tools** | `asOpenAITool()` + `executeToolCall({ language, code })` |
+| **Persistence** | `serialize()` / `Runtime.deserialize()` for overlay state |
 
-```ts
-import { Runtime, exportRunLogJSON } from "runmix";
+## Documentation
 
-const rt = new Runtime("./repo", {
-  onRun: (e) => console.error(e.stderr), // stream errors to your logger
-});
-await rt.run("bash", "echo hi");
-console.log(exportRunLogJSON(rt.getRunLog()));
-```
+| Doc | Contents |
+|-----|----------|
+| [Getting started](docs/getting-started.md) | Install, first runs, overlay, read-only |
+| [Configuration](docs/configuration.md) | `RuntimeOptions`, `RunOptions`, globs, limits, run log |
+| [API reference](docs/api-reference.md) | `Runtime`, types, filesystem adapters, exports |
+| [Security](docs/security.md) | Threat model, workspace boundaries, subprocess behavior |
 
-Python: `get_run_log()`, `clear_run_log()`, `export_run_log_json`, `export_run_log_markdown`; constructor args `run_log=False`, `run_log_max_entries`, `on_run`.
+## Python
 
-### Possible next features
+The same concepts are available from Python: `pip install ./python` (see [`python/README.md`](python/README.md) and [docs/python.md](docs/python.md)).
 
-- **Streaming stdout/stderr** (line chunks via callback while the process runs).
-- **Structured exit reasons** (timeout vs kill vs spawn error) and optional **core dump** metadata.
-- **Allowlist / denylist** for binaries and `env` key prefixes.
-- **Resource metrics** (peak RSS via `ps` or `resource` on Unix).
-- **First-class `stdin`** and **PTY** mode for TUI agents.
-- **WebSocket or HTTP bridge** so remote agents attach to the same `Runtime`.
-- **Plugin engines** (register a custom `Language` handler).
+## License
 
-Python: `pip install ./python` from `runmix/python` (see `python/README.md`).
-
-SQL on Node requires `sqlite3` on your PATH. Use the Python package for stdlib `sqlite3` only.
-
-
-License: Apache-2.0
+Apache-2.0
