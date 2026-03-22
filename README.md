@@ -1,19 +1,43 @@
-# runmix
+# execpad
 
-Execute **bash**, **Python**, **JavaScript** (Node), and **SQL** (via `sqlite3` CLI) against a **real project directory**—with optional overlay, read-only mode, file-change tracking, and a session run log. Built for **AI agents**, CI, and local tooling.
+Execute **bash**, **Python**, **JavaScript** (Node), and **SQL** against a **real project directory**—with optional overlay, read-only mode, file-change tracking, and a session run log. Built for **AI agents**, CI, and local tooling.
+
+Same design in **TypeScript** (npm) and **Python** (PyPI / local install).
+
+---
 
 ## Install
 
+### JavaScript / TypeScript (npm)
+
 ```bash
-npm install runmix
+npm install execpad
 ```
 
 Requires **Node.js ≥ 18**. For SQL on Node, the **`sqlite3`** binary must be on your `PATH`.
 
+### Python
+
+```bash
+pip install execpad
+```
+
+From a clone (editable):
+
+```bash
+pip install -e ./python
+```
+
+Requires **Python ≥ 3.10**. For SQL in Python, the runtime uses **stdlib `sqlite3`** (no `sqlite3` CLI required).
+
+---
+
 ## Quick start
 
+### TypeScript
+
 ```ts
-import { Runtime } from "runmix";
+import { Runtime } from "execpad";
 
 const rt = new Runtime("./my-project");
 const r = await rt.run("python", 'print(open("README.md").read()[:80])');
@@ -21,6 +45,19 @@ console.log(r.stdout);
 console.log(r.files); // file changes under the workspace
 rt.close();
 ```
+
+### Python
+
+```python
+from execpad import Runtime
+
+rt = Runtime("./my-project")
+r = rt.run("python", "print(1 + 1)")
+print(r.stdout)
+rt.close()
+```
+
+---
 
 ## Features
 
@@ -31,8 +68,10 @@ rt.close();
 | **File tracking** | `includeGlobs` / `excludeGlobs` (minimatch) scope which paths appear in `RunResult.files` |
 | **Limits** | `timeoutMs`, `maxOutputBytes` per run or via `limits` on the runtime |
 | **Session log** | `getRunLog()`, `clearRunLog()`, `exportRunLogJSON` / `exportRunLogMarkdown`, optional `onRun` |
-| **OpenAI tools** | `asOpenAITool()` + `executeToolCall({ language, code })` |
+| **OpenAI tools** | `asOpenAITool()` + `executeToolCall({ language, code })` (TS); `as_openai_tool` / `execute_tool_call` (Python) |
 | **Persistence** | `serialize()` / `Runtime.deserialize()` for overlay state |
+
+---
 
 ## Documentation
 
@@ -42,10 +81,9 @@ rt.close();
 | [Configuration](docs/configuration.md) | `RuntimeOptions`, `RunOptions`, globs, limits, run log |
 | [API reference](docs/api-reference.md) | `Runtime`, types, filesystem adapters, exports |
 | [Security](docs/security.md) | Threat model, workspace boundaries, subprocess behavior |
+| [Python notes](docs/python.md) | Node vs Python differences |
 
-## Python
-
-The same concepts are available from Python: `pip install ./python` (see [`python/README.md`](python/README.md) and [docs/python.md](docs/python.md)).
+---
 
 ## License
 
