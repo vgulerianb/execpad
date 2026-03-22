@@ -89,7 +89,7 @@ export class Runtime {
     this.runLogMax = Math.max(1, options.runLogMaxEntries ?? 200);
     this.limits = { ...DEFAULT_LIMITS, ...options.limits };
     if (options.overlay) {
-      this.workDir = fs.mkdtempSync(path.join(os.tmpdir(), "runmix-"));
+      this.workDir = fs.mkdtempSync(path.join(os.tmpdir(), "execpad-"));
       cpRecursive(this.root, this.workDir);
       this.ownsWorkDir = true;
     } else {

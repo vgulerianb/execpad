@@ -20,7 +20,7 @@ describe("Runtime", () => {
   let tmp: string;
 
   beforeEach(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "runmix-test-"));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "execpad-test-"));
     fs.mkdirSync(path.join(tmp, "data"), { recursive: true });
     fs.writeFileSync(path.join(tmp, "data", "x.txt"), "hello", "utf8");
   });

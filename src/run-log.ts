@@ -7,7 +7,7 @@ export function exportRunLogJSON(entries: readonly RunLogEntry[], pretty = true)
 
 /** Human-readable log for pasting into issues or LLM context. */
 export function exportRunLogMarkdown(entries: readonly RunLogEntry[]): string {
-  const lines: string[] = ["# runmix session log", ""];
+  const lines: string[] = ["# execpad session log", ""];
   for (const e of entries) {
     lines.push(`## ${e.id} — ${e.language} @ ${new Date(e.at).toISOString()}`);
     lines.push("");

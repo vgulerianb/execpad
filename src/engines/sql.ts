@@ -45,7 +45,7 @@ export class SqlEngine implements Engine {
         resolve({
           stdout: "",
           stderr:
-            "sqlite3 CLI not found; install SQLite or use runmix Python (stdlib sqlite3).",
+            "sqlite3 CLI not found; install SQLite or use execpad Python (stdlib sqlite3).",
           exitCode: 127,
           durationMs: Date.now() - start,
           files: [],
